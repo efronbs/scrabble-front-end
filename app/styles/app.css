@@ -1,0 +1,80 @@
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+.all {
+  display: flex;
+  flex-flow: column;
+  height: 100%;
+  background-color: #80ffcc;
+}
+
+/** GENERAL **/
+.right {
+  float: right;
+}
+
+.left {
+  float: left;
+}
+
+/** HEADER **/
+.header {
+  flex: 0 1 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-image: url(../assets/images/wood-scrabble-board.jpg);
+  background-position: center 49%;
+  background-repeat: no-repeat;
+  /* background-size: 100%; */
+
+}
+
+.header-text {
+  font-family: Arial, serif;
+  font-size: 400%;
+  color: white;
+  -webkit-text-stroke: 2px black;
+}
+
+/** BOARD **/
+.board-container {
+  /* board container's position on the page */
+  flex: 5 1 auto;
+  margin: 10px 0px;
+
+  /* settings for canvas inside of container */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.board {
+  background-image: url(../assets/images/wood.jpg);
+  background-size: contain;
+
+}
+
+/** text-entry **/
+.footer {
+  /** position in containing flex box **/
+  flex: 0 1 125px;
+  /** setting this div as a flex box and positioning elements inside of it **/
+  display: flex;
+  flex-flow: row;
+  align-items: center;
+  justify-content: center;
+}
+
+.letterbox {
+  flex: 1 1;
+  text-align: center;
+  outline: 2px solid black;
+  margin: 10px;
+  background-color: white;
+  /** TODO making the boxes into squares with interactive width is non-trivial.
+  Saving solving this for a later implementation. **/
+}
