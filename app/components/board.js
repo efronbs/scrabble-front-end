@@ -3,19 +3,19 @@ import { action } from '@ember/object';
 import { inject as service } from '@ember/service';
 
 import Cell from '../projectcode/board/model/cell';
-import UiComponent from '../projectcode/board/view/ui-component';
 import UiClock from '../projectcode/board/view/ui-clock';
-import SimpleBoardFrameComponent from '../projectcode/board/view/simple-board-frame-component';
-import BoardImageBackgroundComponent from '../projectcode/board/view/board-image-background-component';
-import TileComponent from '../projectcode/board/view/tile-component';
-import EventRegistry from '../projectcode/board/view/event-registry';
-import { clickEventName } from '../projectcode/board/view/click-event';
-import ClickEmitter from '../projectcode/board/view/click-emitter';
-import ClickDispatcher from '../projectcode/board/view/click-dispatcher';
-import { mouseEnterEventName } from '../projectcode/board/view/mouse-enter-event';
-import { mouseLeaveEventName } from '../projectcode/board/view/mouse-leave-event';
-import MouseEnterLeaveEmitter from '../projectcode/board/view/mouse-enter-leave-emitter';
-import MouseEnterLeaveDispatcher from '../projectcode/board/view/mouse-enter-leave-dispatcher';
+import UiComponent from '../projectcode/board/view/component/ui-component';
+import SimpleBoardFrameComponent from '../projectcode/board/view/component/simple-board-frame-component';
+import BoardImageBackgroundComponent from '../projectcode/board/view/component/board-image-background-component';
+import TileComponent from '../projectcode/board/view/component/tile-component';
+import EventRegistry from '../projectcode/board/view/event/event-registry';
+import { clickEventName } from '../projectcode/board/view/event/click-event';
+import ClickEmitter from '../projectcode/board/view/event/click-emitter';
+import ClickDispatcher from '../projectcode/board/view/event/click-dispatcher';
+import { mouseEnterEventName } from '../projectcode/board/view/event/mouse-enter-event';
+import { mouseLeaveEventName } from '../projectcode/board/view/event/mouse-leave-event';
+import MouseEnterLeaveEmitter from '../projectcode/board/view/event/mouse-enter-leave-emitter';
+import MouseEnterLeaveDispatcher from '../projectcode/board/view/event/mouse-enter-leave-dispatcher';
 
 /**
  * Some predefined z-index values for what layer ui components are rendered.
@@ -72,6 +72,8 @@ export default class BoardComponent extends Component {
   @action init(element) {
     this.initializeCanvas(element)
 
+    this.initializeController();
+
     this.initializeUiComponents();
 
     this.initializeEventRegistry();
@@ -94,6 +96,10 @@ export default class BoardComponent extends Component {
     this.canvas.height = canvasSideLength;
     this.canvas.width = canvasSideLength;
     this.canvas.className = "board"
+  }
+
+  initializeController() {
+    this.boardController.setBoard(this);
   }
 
   initializeUiComponents() {

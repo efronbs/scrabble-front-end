@@ -1,4 +1,3 @@
-
 export default class BaseEventEmitter {
 
   setPipe(pipe) {

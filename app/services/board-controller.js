@@ -1,14 +1,14 @@
 import Service from '@ember/service';
 import { inject as service } from '@ember/service';
 
-export const BoardLifecycle = {
-  SQUARE_SELECT: "square_select",
-  DIRECTION_SELECT: "dir_select",
-  WORD_ENTRY: "word_entry",
-}
+// TODO export these
+export const BoardState = {
+  TILE_SELECTION: 'tileselection',
+  DIRECTION_SELECTION: 'directionselection',
+};
 
-export const BoardActions = {
-  CLICK: "click",
+export const Action = {
+  SELECT: 'select'
 }
 
 export default class BoardControllerService extends Service {
@@ -18,12 +18,17 @@ export default class BoardControllerService extends Service {
   constructor() {
     super();
 
-    this.currentLifecycle = BoardLifecycle.SQUARE_SELECT;
+    this.boardState = BoardState.TILE_SELECTION;
   }
 
-  setLifecycle(lifecycle) {
-    this.currentLifecycle = lifecycle;
+  setBoard(board) {
+    this.board = board;;
   }
+}
 
-  // processClick()
+class TileSelectionStrategy {
+  constructor() {
+    this.actionToBehavior = {};
+    this.actionToBehavior[Action.SELECT] = (component) => handleSelection(component);
+  }
 }
