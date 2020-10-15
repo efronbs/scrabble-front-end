@@ -53,7 +53,7 @@ body {
 }
 
 .board {
-  background-image: url(../assets/images/wood.jpg);
+  /* background-image: url(../assets/images/wood.jpg); */
   background-size: contain;
 
 }

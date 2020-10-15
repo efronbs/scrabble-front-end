@@ -1,6 +1,37 @@
 import Component from '@glimmer/component';
 import { action } from '@ember/object';
+import { inject as service } from '@ember/service';
 
+import Cell from '../projectcode/board/model/cell';
+import UiComponent from '../projectcode/board/view/ui-component';
+import UiClock from '../projectcode/board/view/ui-clock';
+import SimpleBoardFrameComponent from '../projectcode/board/view/simple-board-frame-component';
+import BoardImageBackgroundComponent from '../projectcode/board/view/board-image-background-component';
+import TileComponent from '../projectcode/board/view/tile-component';
+import EventRegistry from '../projectcode/board/view/event-registry';
+import { clickEventName } from '../projectcode/board/view/click-event';
+import ClickEmitter from '../projectcode/board/view/click-emitter';
+import ClickDispatcher from '../projectcode/board/view/click-dispatcher';
+import { mouseEnterEventName } from '../projectcode/board/view/mouse-enter-event';
+import { mouseLeaveEventName } from '../projectcode/board/view/mouse-leave-event';
+import MouseEnterLeaveEmitter from '../projectcode/board/view/mouse-enter-leave-emitter';
+import MouseEnterLeaveDispatcher from '../projectcode/board/view/mouse-enter-leave-dispatcher';
+
+/**
+ * Some predefined z-index values for what layer ui components are rendered.
+ * Clients do not have to use this enum, and can set drawing priority as they
+ * see fit.
+ *
+ * There is no defined render order for ui components of the same index.
+ */
+export const ComponentIndex = {
+  BACKGROUND: 0,
+  SQUARES: 10,
+  FRAME: 20,
+  ANIMATIONS: 30
+};
+
+const woodBackgroundPath = 'assets/images/wood.jpg';
 
 // TODO this class has way too many responsibilities. Currently acts as
 // model, view, and controller for the game board. Should probably split the model
@@ -8,7 +39,8 @@ import { action } from '@ember/object';
 // as the view only.
 export default class BoardComponent extends Component {
 
-  static BOARD_SIZE = 9;
+  @service boardModel;
+  @service boardController;
 
   constructor(...args) {
     super(...args);
@@ -16,45 +48,121 @@ export default class BoardComponent extends Component {
     // declared but uninitialized
     this.canvasContainer = null;
     this.canvas = null;
-    this.boardEdgeSize = -1;
-    this.squareSideLength = -1;
 
     // initialized properties
-    this.highlightedCell = null;
-    this.boardBorderThickness= 2;
-    this.squareBorderThickness = 6;
-    this.cells = {};
-    for (let i = 0; i < BoardComponent.BOARD_SIZE; i++) {
-      for (let j = 0; j < BoardComponent.BOARD_SIZE; j++) {
-        let newCell = new BoardComponent.Cell(i, j);
-        this.cells[newCell.id] = newCell;
+    this.uiClock = new UiClock();
+
+    // ui component tracking
+    this.uiComponents = new Array(ComponentIndex.ANIMATIONS + 1);
+    this.idToComponent = {};
+    this.componentIdToIndex = {};
+
+    // first classed drawing components
+    this.boardFrameComponent = null;
+    this.boardBackgroundComponent = null;
+    this.squareComponents = {};
+
+    // event registry
+    this.eventRegistry = new EventRegistry();
+  }
+
+  // **********************************
+  // ********* INITIALIZATION *********
+  // **********************************
+  @action init(element) {
+    this.initializeCanvas(element)
+
+    this.initializeUiComponents();
+
+    this.initializeEventRegistry();
+
+    // add to the container
+    element.appendChild(this.canvas);
+
+    // create and start ui clock to allow for drawing and animations
+    this.uiClock.registerObserver(this);
+    this.uiClock.start();
+  }
+
+  initializeCanvas(element) {
+    this.canvasContainer = element;
+
+    // build canvas and initialize with required attributes
+    let canvasSideLength = Math.min(this.canvasContainer.offsetHeight, this.canvasContainer.offsetWidth);
+    this.canvas = document.createElement("canvas");
+    this.canvas.id = "board";
+    this.canvas.height = canvasSideLength;
+    this.canvas.width = canvasSideLength;
+    this.canvas.className = "board"
+  }
+
+  initializeUiComponents() {
+    // create board component
+    this.boardFrameComponent = new SimpleBoardFrameComponent(this.boardModel.boardSize, this.canvas.width);
+    this.registerUiComponent(this.boardFrameComponent, ComponentIndex.FRAME);
+
+    // create background component
+    let backgroundImage = new Image(this.boardFrameComponent.boardEdgeSize, this.boardFrameComponent.boardEdgeSize);
+    backgroundImage.src = woodBackgroundPath;
+
+    this.boardBackgroundComponent = new BoardImageBackgroundComponent(
+      backgroundImage,
+      this.boardFrameComponent.centeringOffset,
+      this.boardFrameComponent.centeringOffset,
+      this.boardFrameComponent.boardEdgeSize,
+      this.boardFrameComponent.boardEdgeSize
+    );
+    this.registerUiComponent(this.boardBackgroundComponent, ComponentIndex.BACKGROUND);
+
+    // create all tiles components
+    for (let row = 0; row < this.boardModel.boardSize; row++) {
+      for (let column = 0; column < this.boardModel.boardSize; column++) {
+        let id = Cell.idFor(row, column);
+        let coordinates = this.boardFrameComponent.coordinatesForSquare(row, column);
+        let newSquare = new TileComponent(
+          coordinates['row'],
+          coordinates['column'],
+          this.boardFrameComponent.squareSideLength,
+          this.boardModel.cells[id],
+          this.boardController
+        );
+        this.squareComponents[id] = newSquare;
+        this.registerUiComponent(newSquare, ComponentIndex.SQUARES);
       }
     }
   }
 
-  // **********************************
-  // ******** STATE MANAGEMENT ********
-  // **********************************
+  initializeEventRegistry() {
+    // emitters
 
-  /**
-   * Calculates and sets the state of the board. This method should be called
-   * whenever the canvas needs to be drawn. For example, when it is first
-   * initialized or after window resizing.
-   */
-  setBoardState() {
-    // General algorithm:
-    // We want all squares on the board to be evenly sized. Thus, a board edge
-    // should be sized to largest possible value, within the container, which after
-    // subtracting the amount of pixels dedicated to borders, can be divided evenly
-    // among all squares.
+    // currently don't need to track emitters at the board component level.
+    // This may change in the future.
+    let clickEmitter = new ClickEmitter(this.canvas);
+    this.eventRegistry.bindEmitter(clickEmitter, clickEventName);
 
-    // TODO consider making numLine and/or nonSquarePixels instance properties
-    // pixels on board taken up by the frame lines.
-    let numLines = BoardComponent.BOARD_SIZE - 1;
-    let nonSquarePixels = (2 * this.boardBorderThickness) + (numLines * this.squareBorderThickness);
-    let containerSize = Math.min(this.canvasContainer.offsetHeight, this.canvasContainer.offsetWidth);
-    this.squareSideLength = Math.floor((containerSize - nonSquarePixels) / BoardComponent.BOARD_SIZE);
-    this.boardEdgeSize = (this.squareSideLength * BoardComponent.BOARD_SIZE) + nonSquarePixels;
+    let mouseEnterLeaveEmitter = new MouseEnterLeaveEmitter(
+      this.canvas,
+      this.eventRegistry.getComponentsForEvent(mouseEnterEventName),
+      this.eventRegistry.getComponentsForEvent(mouseLeaveEventName)
+    );
+    this.eventRegistry.bindEmitter(mouseEnterLeaveEmitter, mouseEnterEventName);
+    this.eventRegistry.bindEmitter(mouseEnterLeaveEmitter, mouseLeaveEventName);
+
+    // dispatchers
+    let clickDispatcher = new ClickDispatcher(this.componentIdToIndex);
+    this.eventRegistry.bindDispatcher(clickDispatcher, clickEventName);
+
+    let mouseEnterLeaveDispatcher = new MouseEnterLeaveDispatcher(this.componentIdToIndex);
+    this.eventRegistry.bindDispatcher(mouseEnterLeaveDispatcher, mouseEnterEventName);
+    this.eventRegistry.bindDispatcher(mouseEnterLeaveDispatcher, mouseLeaveEventName);
+
+    // components
+    Object.values(this.squareComponents).forEach(
+      s =>  {
+        this.eventRegistry.registerComponent(clickEventName, s);
+        this.eventRegistry.registerComponent(mouseEnterEventName, s);
+        this.eventRegistry.registerComponent(mouseLeaveEventName, s);
+    })
   }
 
   // ***********************************
@@ -67,221 +175,52 @@ export default class BoardComponent extends Component {
    * should be written to only clear what needs to be cleared and to only redraw
    * what needs to be redrawn.
    */
-  draw() {
-    this.clearCanvas();
-
-    this.drawBoardFrame();
-    this.drawHighlightedSquare();
-
-    // debugging code
-    // console.log(this.cells['2,7'])
-    // console.log("board border thickness: " + this.boardBorderThickness);
-    // console.log("square border thickness: " + this.squareBorderThickness);
-    // console.log("square side length: " + this.squareSideLength);
-    // let coords = this.cellToCoordinates(this.cells['2,7'])
-    // console.log("coords for 2,7: " + coords['row'] + ', ' + coords['column']);
-    // console.log("calculated cell for prev coords: " + this.coordinatesToCell(coords['row'], coords['column']).id);
-    // console.log("calculated cell for coords 57, 57: " + this.coordinatesToCell(529,529));
-  }
-
-  clearCanvas() {
+  draw(timedelta) {
     let ctx = this.canvas.getContext('2d');
-    ctx.clearRect(0, 0, this.boardEdgeSize, this.boardEdgeSize);
+
+    this.clearCanvas(ctx);
+    this.drawUiComponents(ctx);
   }
 
-  drawBoardFrame() {
-    let ctx = this.canvas.getContext('2d');
-    ctx.fillStyle = 'black';
-
-    // TODO consider splitting outline and board squares when it is time to
-    // draw more complex board shapes.
-
-    //outline first
-    // multiply by 2 as start point is middle pixel of the line, so half the
-    // border will be rendered off the canvas
-    ctx.lineWidth = 2 * this.boardBorderThickness;
-    ctx.strokeRect(0, 0, this.boardEdgeSize, this.boardEdgeSize);
-
-    // squares
-
-    // 1 less line than number of squares on board
-    let numLines = BoardComponent.BOARD_SIZE - 1;
-
-    // draw vertical then horizontal
-    this.drawBoardLines(ctx, numLines, true);
-    this.drawBoardLines(ctx, numLines,  false);
+  clearCanvas(ctx) {
+    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
   }
 
-  /**
-   * Draws the horizontal or vertical lines on the board.
-   *
-   * @param ctx  Object. 2d context of the canvas to draw on.
-   * @param numLines  Integer. The number of lines to draw on the board.
-   * @param vertical  Boolean. Whether the lines should be drawn vertically or
-   *                  horizontally. True for vertical, false for horizontal.
-   */
-  drawBoardLines(ctx, numLines, vertical) {
-    ctx.lineWidth = this.squareBorderThickness;
-    for (let i = 0; i < numLines; i++) {
-
-      // line is drawn in middle of thickness, need to add extra offset to start
-      // of square to ensure it is drawn correctly. Additionally, line is drawn
-      // after square, so another square length space must be added.
-      let drawingOffset = this.calculateSquareOffset(i) + this.squareSideLength + (this.squareBorderThickness / 2);
-      ctx.beginPath();
-      if (vertical == true) {
-        ctx.moveTo(drawingOffset, 0);
-        ctx.lineTo(drawingOffset, this.boardEdgeSize);
-      } else {
-        ctx.moveTo(0, drawingOffset);
-        ctx.lineTo(this.boardEdgeSize, drawingOffset);
+  drawUiComponents(ctx) {
+    this.uiComponents.forEach(
+      (val, index, arr) => {
+        if (val != null) {
+          val.forEach(c => c.draw(ctx));
+        }
       }
-      ctx.fillStyle = 'black';
-      ctx.stroke();
-    }
-  }
-
-  drawHighlightedSquare() {
-    // snapshot highlighted cell, prevent race condition where cell is not null
-    // but is then nulled
-    let cell = this.highlightedCell;
-    if (cell == null) {
-      return;
-    }
-    let startCoords = this.cellToCoordinates(cell);
-    let ctx = this.canvas.getContext('2d');
-    ctx.fillStyle = 'rgba(85, 251, 64, 0.5)';
-    ctx.fillRect(startCoords['row'], startCoords['column'], this.squareSideLength, this.squareSideLength);
-  }
-
-  /**
-   * Calculates the offset in pixels from the beginning of the board to the
-   * start of the given square. As the board is always a square, does not
-   * distinguish between horizontal or vertical.
-   *
-   * @param squareNumber  Integer. The numbered square in the row or column. Square
-   *                      location is 0-indexed. For example, to find the start
-   *                      of the 3rd square in any row or column,
-   *                      squareNumber = 2
-   */
-  calculateSquareOffset(squareNumber) {
-    // initial offset is the number of pixels the board's border takes up
-    return (this.boardBorderThickness) +
-        // number pixels of square divider passed
-        (squareNumber * this.squareBorderThickness) +
-        // number of squares passed
-        ((squareNumber) * this.squareSideLength);
-  }
-
-  // ************************************
-  // ******** CELL AND UTILITIES ********
-  // ************************************
-
-  /**
-   * Object that represents the value of a specific square on the board. Not
-   * intended for use outside of this class.
-   */
-  static Cell = class {
-    constructor(row, column) {
-        this.row = row;
-        this.column = column;
-        this.id = row + ',' + column;
-        this.value = '';
-    };
-  }
-
-  /**
-   * Covnverts a BoardComponent.Cell to coordinates for the top left of the cell
-   * on the board
-   */
-  cellToCoordinates(cell) {
-    return {
-      'row': this.calculateSquareOffset(cell.row),
-      'column': this.calculateSquareOffset(cell.column),
-    }
-  }
-
-  /**
-   * Converts the given coorindates to the cell that they cross over. If the
-   * coordinates do not cross any cell, null is returned
-   */
-  coordinatesToCell(row, column) {
-    let rowIndex = this.indexForOffset(row);
-    let columnIndex = this.indexForOffset(column);
-    if (rowIndex < 0 || columnIndex < 0) {
-      return null;
-    }
-    let key = rowIndex + ',' + columnIndex;
-    return this.cells[rowIndex + ',' + columnIndex];
-  }
-
-  /**
-   * Calculates the index for a cell given an offset into the board in pixels.
-   * Offest may be either horizontal or vertical units. As the board is a square
-   * it doesn't matter. If the offset does not fall on a square (such as on a
-   * divider or off the board), -1 is returned;
-   */
-  indexForOffset(offset) {
-    // off the board
-    if (offset < this.boardBorderThickness || offset >= this.boardEdgeSize) {
-      return -1;
-    }
-
-    let searchOffset = this.boardBorderThickness + this.squareSideLength + this.squareBorderThickness;
-
-    for (var prevIndex = 0; prevIndex < BoardComponent.BOARD_SIZE; prevIndex++) {
-      // search pointer has moved PAST the offset. Previous index is the square
-      // the cell must point to, if the coordinate is valid
-      if ((searchOffset - offset) > 0) {
-        break;
-      }
-      searchOffset += this.squareSideLength + this.squareBorderThickness;
-    }
-
-    // offset must be on the square and not on the border.
-    if (offset - (this.calculateSquareOffset + this.squareSideLength) > 0) {
-      return -1;
-    }
-
-    return prevIndex;
+    );
   }
 
   // ***************************************
-  // ******** ACTIONS AND LISTENERS ********
+  // ********* MANAGING COMPONENTS *********
   // ***************************************
-  @action initBoard(element) {
-    this.canvasContainer = element;
-    this.setBoardState();
 
-    // build canvas and initialize with required attributes
-    this.canvas = document.createElement("canvas");
-    this.canvas.id = "board";
-    this.canvas.height = this.boardEdgeSize;
-    this.canvas.width = this.boardEdgeSize;
-    this.canvas.className = "board"
+  registerUiComponent(component, zIndex = ComponentIndex.ANIMATIONS) {
+    while(zIndex >= this.uiComponents.length) {
+      this.uiComponents.push(null);
+    }
 
-    // add event listeners
-    this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
-    this.canvas.addEventListener('mouseleave', (e) => { this.highlightedCell = null; this.draw(); });
+    if (this.uiComponents[zIndex] == null) {
+      this.uiComponents[zIndex] = new Set();
+    }
 
-    // finally, add to the container
-    element.appendChild(this.canvas);
-
-    this.draw();
+    this.uiComponents[zIndex].add(component);
+    this.componentIdToIndex[component.getId()] = zIndex;
   }
 
-  handleMouseMove(event) {
-    let relX = event.clientX - this.canvas.offsetLeft;
-    let relY = event.clientY - this.canvas.offsetTop;
-    let cell = this.coordinatesToCell(relX, relY);
-
-    if (cell == null) {
-      this.highlightedCell = null;
+  removeComponent(component) {
+    let id = component.getId();
+    if (!(id in this.componentToIndex)) {
       return;
     }
 
-    this.highlightedCell = cell;
-    this.draw();
+    let zIndex = this.componentToIndex[id];
+    this.uiComponents[zIndex].delete(component);
+    delete this.componentToIndex[id];
   }
-
 }
