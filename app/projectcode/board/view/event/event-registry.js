@@ -77,7 +77,7 @@ export default class EventRegistry {
     this.eventToRegisteredComponents[eventName].add(component);
 
     // also add to reverse lookup
-    let id = component.getId();
+    const id = component.getId();
     if (!(id in this.componentIdToRegisteredEvents)) {
       this.componentIdToRegisteredEvents[id] = new Set();
     }

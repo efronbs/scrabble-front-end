@@ -3,10 +3,12 @@ import ClickEvent from '../event/click-event';
 import { clickEventName } from '../event/click-event';
 import { mouseEnterEventName } from '../event/mouse-enter-event';
 import { mouseLeaveEventName } from '../event/mouse-leave-event';
+import { SelectAction, ActionName } from '../../controller/action';
 
+// States the tile can be in. Tile has different behaviors based on state
 export const TileState = {
-  TILE_SELECTION: 'tileselection',
-  DIRECTION_SELECTION: 'directionselection',
+  SELECTABLE: 'selectable',
+  UNFOCUSED: 'unfocused',
 };
 
 export default class TileComponent extends UiComponent {
@@ -20,9 +22,9 @@ export default class TileComponent extends UiComponent {
     this.sideLength = sideLength;
     this.cell = cell;
     this.controller = controller;
+    this.highlightable = true;
 
     this.canvas == null;
-    this.focused = false;
 
     // event mapping
     this.eventToHandlerMap = {};
@@ -31,18 +33,24 @@ export default class TileComponent extends UiComponent {
     this.eventToHandlerMap[mouseLeaveEventName] = e => this.handleMouseLeaveEvent(e);
 
     // strategies
-    this.tileSelectionStrategy = new TileSelectionStrategy(this);
+    this.selectableStrategy = new SelectableStrategy(this);
+    this.UnfocusedStrategy = new UnfocusedStrategy(this);
 
-    // fst state to strategy
+    // state to strategy
     this.stateToStrategy = {}
-    this.stateToStrategy[TileState.TILE_SELECTION] = this.tileSelectionStrategy;
+    this.stateToStrategy[TileState.SELECTABLE] = this.selectableStrategy;
+    this.stateToStrategy[TileState.UNFOCUSED] = this.UnfocusedStrategy;
 
     // initialize strategy to tile selection
-    this.currentStrategy = this.tileSelectionStrategy
+    this.currentStrategy = this.selectableStrategy;
   }
 
   getId() {
     return this.constructor.name + this.startX + this.startY + this.sideLength + this.cell.value;
+  }
+
+  setState(stateName) {
+    this.currentStrategy = this.stateToStrategy[stateName] || this.currentStrategy;
   }
 
   containsPoint(x, y) {
@@ -82,14 +90,14 @@ export default class TileComponent extends UiComponent {
   }
 }
 
-class TileSelectionStrategy {
+class SelectableStrategy {
   constructor(tile) {
     this.tile = tile;
     this.highlighted = false;
   }
 
   draw(ctx) {
-    if (this.highlighted) {
+    if (this.highlighted && this.tile.highlightable) {
       ctx.fillStyle = 'rgba(85, 251, 64, 0.5)';
       ctx.fillRect(this.tile.startX, this.tile.startY, this.tile.sideLength, this.tile.sideLength);
     }
@@ -97,7 +105,7 @@ class TileSelectionStrategy {
 
   handleClickEvent(event) {
     /** // TODO implement state change */
-    this.tile.controller.
+    this.tile.controller.processAction(new SelectAction(this.tile));
   }
 
   handleMouseEnterEvent(event) {
@@ -109,16 +117,14 @@ class TileSelectionStrategy {
   }
 }
 
-class DirectionSelectionStrategy {
+class UnfocusedStrategy {
   constructor(tile) {
     this.tile = tile;
   }
 
   draw(ctx) {
-    if (! this.tile.focused) {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-      ctx.fillRect(this.tile.startX, this.tile.startY, this.tile.sideLength, this.tile.sideLength);
-    }
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.fillRect(this.tile.startX, this.tile.startY, this.tile.sideLength, this.tile.sideLength);
   }
 
   handleClickEvent(event) {

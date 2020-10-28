@@ -48,7 +48,7 @@ export default class SimpleBoardFrameComponent extends UiComponent {
   }
 
   drawBorder(ctx) {
-    ctx.fillStyle = 'black';
+    ctx.strokeStyle = 'black';
     ctx.lineWidth = this.borderThickness;
 
     // line width draws in the center of the line, so need to account for
@@ -68,7 +68,7 @@ export default class SimpleBoardFrameComponent extends UiComponent {
    *                  horizontally. True for vertical, false for horizontal.
    */
   drawBoardLines(ctx, numLines, vertical) {
-    ctx.fillStyle = 'black';
+    ctx.strokeStyle = 'black';
     ctx.lineWidth = this.borderThickness;
     for (let i = 0; i < numLines; i++) {
 

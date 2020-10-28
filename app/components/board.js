@@ -8,6 +8,7 @@ import UiComponent from '../projectcode/board/view/component/ui-component';
 import SimpleBoardFrameComponent from '../projectcode/board/view/component/simple-board-frame-component';
 import BoardImageBackgroundComponent from '../projectcode/board/view/component/board-image-background-component';
 import TileComponent from '../projectcode/board/view/component/tile-component';
+import ArrowComponent from '../projectcode/board/view/component/arrow-component';
 import EventRegistry from '../projectcode/board/view/event/event-registry';
 import { clickEventName } from '../projectcode/board/view/event/click-event';
 import ClickEmitter from '../projectcode/board/view/event/click-emitter';
@@ -16,6 +17,11 @@ import { mouseEnterEventName } from '../projectcode/board/view/event/mouse-enter
 import { mouseLeaveEventName } from '../projectcode/board/view/event/mouse-leave-event';
 import MouseEnterLeaveEmitter from '../projectcode/board/view/event/mouse-enter-leave-emitter';
 import MouseEnterLeaveDispatcher from '../projectcode/board/view/event/mouse-enter-leave-dispatcher';
+import { keyDownEventName } from '../projectcode/board/view/event/keyboard-events';
+import KeyboardEmitter from '../projectcode/board/view/event/keyboard-emitter';
+import KeyboardDispatcher from '../projectcode/board/view/event/keyboard-dispatcher';
+import BoardModelService from '../services/board-model';
+import BoardControllerService from '../services/board-controller';
 
 /**
  * Some predefined z-index values for what layer ui components are rendered.
@@ -51,6 +57,24 @@ export default class BoardComponent extends Component {
 
     // initialized properties
     this.uiClock = new UiClock();
+
+    //*************************************************************************
+    //*************************************************************************
+    //*************************************************************************
+    /** //TODO INJECT THIS INSTEAD OF INITIALIZING IT!
+     * currently initializing these services instead of injecting them because
+     * referencing injected objects with mixins that are outside of the ember
+     * container requires some special extra handling.
+     * see: https://github.com/emberjs/ember.js/issues/11135
+     * Addressing this is beyond the scope of my current experience and MVP
+     * requirements. HOWEVER, revisiting dependency injection is critical for
+     * the scalability of this project and should happen sooner rather than later.
+    **/
+    this.boardModel = new BoardModelService();
+    this.boardController = new BoardControllerService(this.boardModel);
+    //*************************************************************************
+    //*************************************************************************
+    //*************************************************************************
 
     // ui component tracking
     this.uiComponents = new Array(ComponentIndex.ANIMATIONS + 1);
@@ -143,16 +167,19 @@ export default class BoardComponent extends Component {
 
     // currently don't need to track emitters at the board component level.
     // This may change in the future.
-    let clickEmitter = new ClickEmitter(this.canvas);
+    const clickEmitter = new ClickEmitter(this.canvas);
     this.eventRegistry.bindEmitter(clickEmitter, clickEventName);
 
-    let mouseEnterLeaveEmitter = new MouseEnterLeaveEmitter(
+    const mouseEnterLeaveEmitter = new MouseEnterLeaveEmitter(
       this.canvas,
       this.eventRegistry.getComponentsForEvent(mouseEnterEventName),
       this.eventRegistry.getComponentsForEvent(mouseLeaveEventName)
     );
     this.eventRegistry.bindEmitter(mouseEnterLeaveEmitter, mouseEnterEventName);
     this.eventRegistry.bindEmitter(mouseEnterLeaveEmitter, mouseLeaveEventName);
+
+    const keyboardEmitter = new KeyboardEmitter();
+    this.eventRegistry.bindEmitter(keyboardEmitter, keyDownEventName);
 
     // dispatchers
     let clickDispatcher = new ClickDispatcher(this.componentIdToIndex);
@@ -162,13 +189,18 @@ export default class BoardComponent extends Component {
     this.eventRegistry.bindDispatcher(mouseEnterLeaveDispatcher, mouseEnterEventName);
     this.eventRegistry.bindDispatcher(mouseEnterLeaveDispatcher, mouseLeaveEventName);
 
+    const keyboardDispatcher = new KeyboardDispatcher();
+    this.eventRegistry.bindDispatcher(keyboardDispatcher, keyDownEventName);
+
     // components
     Object.values(this.squareComponents).forEach(
       s =>  {
         this.eventRegistry.registerComponent(clickEventName, s);
         this.eventRegistry.registerComponent(mouseEnterEventName, s);
         this.eventRegistry.registerComponent(mouseLeaveEventName, s);
-    })
+    });
+
+    this.eventRegistry.registerComponent(keyDownEventName, this.boardController);
   }
 
   // ***********************************
@@ -185,11 +217,22 @@ export default class BoardComponent extends Component {
     let ctx = this.canvas.getContext('2d');
 
     this.clearCanvas(ctx);
+    this.updateUiComponents(timedelta);
     this.drawUiComponents(ctx);
   }
 
   clearCanvas(ctx) {
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+  }
+
+  updateUiComponents(timeDelta) {
+    this.uiComponents.forEach(
+      (val, index, arr) => {
+        if (val != null) {
+          val.forEach(c => c.step(timeDelta));
+        }
+      }
+    );
   }
 
   drawUiComponents(ctx) {
@@ -221,12 +264,12 @@ export default class BoardComponent extends Component {
 
   removeComponent(component) {
     let id = component.getId();
-    if (!(id in this.componentToIndex)) {
+    if (!(id in this.componentIdToIndex)) {
       return;
     }
 
-    let zIndex = this.componentToIndex[id];
+    let zIndex = this.componentIdToIndex[id];
     this.uiComponents[zIndex].delete(component);
-    delete this.componentToIndex[id];
+    delete this.componentIdToIndex[id];
   }
 }

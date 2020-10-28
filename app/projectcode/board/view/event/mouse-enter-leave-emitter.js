@@ -13,7 +13,7 @@ export default class MouseEnterLeaveEmitter extends BaseEventEmitter {
     this.mouseEnterComponents = mouseEnterComponents;
     this.mouseLeaveComponents = mouseLeaveComponents;
     this.wasEntered = new Set();
-    this.eventToPipe = {}
+    this.eventToPipe = {};
 
     this.canvas.addEventListener('mousemove', (e) => this.processMouseMoveEvent(e));
     this.canvas.addEventListener('mouseleave', (e) => this.processMouseLeaveEvent());
