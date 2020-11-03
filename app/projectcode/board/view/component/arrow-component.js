@@ -1,8 +1,17 @@
 import UiComponent from './ui-component';
 import MathExtended from '../../../util/math-extended';
+import Matrix from '../../../util/matrix';
 
 const origin = {x: 0, y: 0};
 const initialRotation = Math.PI / 2;
+
+/**
+ * Matrix to correct rotation direction for inverted y axis.
+ *
+ * [ -1, 0 ]
+ * [  0, 1 ]
+ */
+const correctionMatrix = [[-1, 0],[0, 1]];
 
 export default class ArrowComponent extends UiComponent {
 
@@ -33,17 +42,35 @@ export default class ArrowComponent extends UiComponent {
 
     // points for drawing
     this.rotationMatrix = this.buildRotationMatrix();
+    this.correctedRotationMatrix = Matrix.multiply(correctionMatrix, this.rotationMatrix);
+
+    this.inverseCorrectedRotationMatrix = Matrix.inverse(this.correctedRotationMatrix);
 
     const init = this.buildPointMap();
-    const rot = this.applyRotation(init);
+    const rot = this.applyRotation(init, this.correctedRotationMatrix);
 
+    this.unrotatedPoints = init;
     this.rotatedPoints = rot;
     this.animationDistance = this.initializeAnimationPath();
 
+    this.unrotatedClickBox = this.setupClickBox();
   }
 
   getId() {
     return this.constructor.name + this.x + this.y + this.squareSize;
+  }
+
+  containsPoint(x, y) {
+
+    const rotated = this.applyRotation({p: {x: x, y: y}}, this.inverseCorrectedRotationMatrix).p;``
+
+    // console.log('clickable box: ');
+    // console.log(this.unrotatedClickBox);
+
+    return rotated.x >= this.unrotatedClickBox.x1
+            && rotated.x <= this.unrotatedClickBox.x2
+            && rotated.y >= this.unrotatedClickBox.y1
+            && rotated.y <= this.unrotatedClickBox.y2;
   }
 
   // ******************
@@ -112,45 +139,46 @@ export default class ArrowComponent extends UiComponent {
 
   /**
   *  2D rotaion matrix
-  *  [ cos(t), -sin(t) ]
-  *  [ sin(t), cos(t)  ]
+  *  [ cos(t)  -sin(t) ]
+  *  [ sin(t)  cos(t)  ]
+  * second matrix corrects rotational direction for inverted y axis
   */
   buildRotationMatrix() {
-    let r1 = [Math.cos(this.adjustedRotation), -1 * Math.sin(this.adjustedRotation)];
-    let r2 = [Math.sin(this.adjustedRotation), Math.cos(this.adjustedRotation)];
-    return [r1, r2];
+    return [
+      [Math.cos(this.adjustedRotation), -1 * Math.sin(this.adjustedRotation)],
+      [Math.sin(this.adjustedRotation), Math.cos(this.adjustedRotation)]
+    ];
   }
 
   initializeAnimationPath() {
-    // // tip of the arrow in its starting position
     const tipOfArrow = this.rotatedPoints.t3;
-
-    // the distance the arrow travels during the rotation
-    // TODO make this into a static field
-
-    // initial position is 90 degree rotation
-    // we are rotating in the opposite direction
     const angle = this.rawRotation;
-
-    // console.log('angle:' + (angle * 180) / Math.PI);
-    // console.log('path length: ' + animationPathLength);
 
     const distanceComponents = {
       x: this.animationPathLength * Math.cos(angle),
       y: -1 * this.animationPathLength * Math.sin(angle) // axis is switched for y; down is positive up is negative
     };
 
-    // console.log('start point: ');
-    // console.log(tipOfArrow);
-    // console.log('distance components:');
-    // console.log(distanceComponents);
-    // console.log('end point:');
-    // console.log({
-    //   x: tipOfArrow.x + distanceComponents.x,
-    //   y: tipOfArrow.y + distanceComponents.y
-    // });
-
     return distanceComponents
+  }
+
+  setupClickBox() {
+    const xValues = Object.values(this.unrotatedPoints).map(p => p.x);
+    const minX = Math.min(...xValues);
+    const maxX = Math.max(...xValues);
+
+    const yValues = Object.values(this.unrotatedPoints).map(p => p.y);
+    const minY = Math.min(...yValues);
+    const maxY = Math.max(...yValues);
+
+    return {
+      x1: minX,
+      // when UNROTATED, animation does not move in x direction
+      x2: maxX,
+      // y direction is reversed
+      y1: minY - this.animationPathLength,
+      y2: maxY,
+    }
   }
 
   /**
@@ -183,14 +211,22 @@ export default class ArrowComponent extends UiComponent {
   }
 
 
-  applyRotation(points) {
+  applyRotation(points, rotationMatrix, debug = false) {
     let result = {};
     for (const key in points) {
 
       const originalPoint = points[key];
       const translatedToOrigin = this.translateAxis(this.basePoint, origin, originalPoint);
-      const rotatedAtOrigin = this.rotatePoint(translatedToOrigin);
+      const rotatedAtOrigin = this.rotatePoint(translatedToOrigin, rotationMatrix);
       const translatedBack = this.translateAxis(origin, this.basePoint, rotatedAtOrigin);
+
+      if (debug) {
+        console.log('point being rotated around: ' + this.basePoint.x + ', ' + this.basePoint.y);
+        console.log('point before rotation: ' + originalPoint.x + ', ' + originalPoint.y);
+        console.log('translation to origin: ' + translatedToOrigin.x + ', ' + translatedToOrigin.y);
+        console.log('rotated: ' + rotatedAtOrigin.x + ', ' + rotatedAtOrigin.y);
+        console.log('translated back (final point): ' + translatedBack.x + ', ' + translatedBack.y);
+      }
 
       result[key] = translatedBack;
     }
@@ -214,10 +250,10 @@ export default class ArrowComponent extends UiComponent {
    * Inverted y axis causes rotation to occur in opposite direction, corrected by
    * multiplying result of rotations x value by -1.
    */
-  rotatePoint(point) {
+  rotatePoint(point, rotationMatrix) {
     return {
-      x: -1 * (point.x * this.rotationMatrix[0][0] + point.y * this.rotationMatrix[0][1]),
-      y: 1 * (point.x * this.rotationMatrix[1][0] + point.y * this.rotationMatrix[1][1])
+      x: (point.x * rotationMatrix[0][0] + point.y * rotationMatrix[0][1]),
+      y: (point.x * rotationMatrix[1][0] + point.y *  rotationMatrix[1][1])
     };
   }
 
@@ -266,6 +302,7 @@ export default class ArrowComponent extends UiComponent {
     ctx.stroke();
 
     // this.renderPoint(ctx, this.x, this.y);
+    // this.renderClickBox(ctx);
   }
 
   renderPoint(ctx, centerX, centerY) {
@@ -276,6 +313,18 @@ export default class ArrowComponent extends UiComponent {
     ctx.arc(centerX, centerY, 2, 0, 2 * Math.PI);
     ctx.fill();
     ctx.stroke();
+  }
+
+  renderClickBox(ctx) {
+    ctx.fillStyle = 'rgba(166, 37, 245, 0.5)';
+    ctx.strokeStyle = 'black';
+
+    ctx.fillRect(
+      this.unrotatedClickBox.x1,
+      this.unrotatedClickBox.y1,
+      this.unrotatedClickBox.x2 - this.unrotatedClickBox.x1,
+      this.unrotatedClickBox.y2 - this.unrotatedClickBox.y1
+    );
   }
 
   translateBy(originalPoints, translationDistances) {

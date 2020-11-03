@@ -45,7 +45,6 @@ export default class ControllerStateTemplate {
     // BASE CASE DO NOTHING
   }
 
-
   handleSubmit(action) {
     // BASE CEASE DO NOTHING
   }

@@ -3,6 +3,7 @@ import ArrowComponent from '../view/component/arrow-component';
 import { TileState } from '../view/component/tile-component';
 import { ComponentIndex } from '../../../components/board';
 import { BoardState } from './board-state';
+import { clickEventName } from '../view/event/click-event';
 
 export default class SquareSelectionControllerState extends ControllerStateTemplate {
 
@@ -15,6 +16,7 @@ export default class SquareSelectionControllerState extends ControllerStateTempl
 
     const arrowComponents = this.buildArrowComponents(selectedComponent);
     arrowComponents.forEach(c => this.controller.board.registerUiComponent(c, ComponentIndex.ANIMATIONS));
+    arrowComponents.forEach(c => this.controller.board.eventRegistry.registerComponent(clickEventName, c));
 
     Object.values(this.controller.board.squareComponents)
       .filter(s => s.getId() !== selectedComponent.getId())
@@ -23,6 +25,7 @@ export default class SquareSelectionControllerState extends ControllerStateTempl
     selectedComponent.highlightable = false;
 
     this.controller.arrowComponents = arrowComponents;
+    this.controller.focusedComponent = selectedComponent;
     this.controller.setState(BoardState.DIRECTION_SELECTION);
   }
 

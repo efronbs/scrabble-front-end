@@ -3,9 +3,7 @@ import Service from '@ember/service';
 import ControllerStateTemplate from '../projectcode/board/controller/controller-state-template';
 import { BoardState } from '../projectcode/board/controller/board-state';
 import SquareSelectionControllerState from '../projectcode/board/controller/square-selection-controller-state';
-import { keyDownEventName } from '../projectcode/board/view/event/keyboard-events';
-import { CancelAction } from '../projectcode/board/controller/action';
-import { TileState } from '../projectcode/board/view/component/tile-component';
+import DirectionSelectionControllerState from '../projectcode/board/controller/direction-selection-controller-state';
 
 const id = 'BoardControllerService';
 
@@ -18,7 +16,7 @@ export default class BoardControllerService extends Service {
 
     // states to switch between
     this.squareSelectionState = new SquareSelectionControllerState(this);
-    this.directionSelectionState = new DirectionSelectionState(this);
+    this.directionSelectionState = new DirectionSelectionControllerState(this);
     this.wordEntryState = new WordEntryState(this);
 
     // mapping from state name to state strategy
@@ -54,35 +52,21 @@ export default class BoardControllerService extends Service {
   }
 }
 
-
-// TODO extract this into its own class
-class DirectionSelectionState extends ControllerStateTemplate {
+// TODO extract this into separate class
+class WordEntryState extends ControllerStateTemplate {
   processEvent(e) {
-    if (e.getName() === keyDownEventName && e.rawEvent.code === 'Escape') {
-      this.handleCancel(new CancelAction());
+    if (e.getName() === keyDownEventName) {
+      const stringCode = e.rawEvent.code;
+      const asciiCode = e.rawEvent.keyCode;
+      if (stringCode === 'Escape') {
+          this.handleCancel(new CancelAction());
+      }
+      if (asciiCode >= 64 && asciiCode <= 90) {
+        const enteredChar = String.fromCharCode(asciiCode);
+      }
     }
   }
 
-  handleSelection(action) {
-    // TODO: fill this in
-  }
-
-  handleCancel(action) {
-    Object.values(this.controller.board.squareComponents)
-      .forEach(
-        s => {
-          s.setState(TileState.SELECTABLE);
-          s.highlightable = true;
-    });
-
-    this.controller.arrowComponents.forEach(c => this.controller.board.removeComponent(c));
-    this.controller.arrowComponents = null;
-
-    this.controller.setState(BoardState.SQUARE_SELECTION);
-  }
-}
-
-class WordEntryState extends ControllerStateTemplate {
   handleCancel() {
     // TODO: fill this in
   }

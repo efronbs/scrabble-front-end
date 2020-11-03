@@ -104,7 +104,6 @@ class SelectableStrategy {
   }
 
   handleClickEvent(event) {
-    /** // TODO implement state change */
     this.tile.controller.processAction(new SelectAction(this.tile));
   }
 
@@ -120,22 +119,23 @@ class SelectableStrategy {
 class UnfocusedStrategy {
   constructor(tile) {
     this.tile = tile;
+    this.shadedFillStyle = 'rgba(0, 0, 0, 0.5)';
   }
 
   draw(ctx) {
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.fillStyle = this.shadedFillStyle;
     ctx.fillRect(this.tile.startX, this.tile.startY, this.tile.sideLength, this.tile.sideLength);
   }
 
   handleClickEvent(event) {
-    /** // TODO implement state change */
+    this.tile.controller.processAction(new SelectAction(this.tile));
   }
 
   handleMouseEnterEvent(event) {
-    this.highlighted = true;
+    // nothing when unfocused
   }
 
   handleMouseLeaveEvent(event) {
-    this.highlighted = false;
+    // nothing when unfocused
   }
 }
