@@ -1,6 +1,7 @@
 import ControllerStateTemplate from './controller-state-template';
 import ArrowComponent from '../view/component/arrow-component';
 import { TileState } from '../view/component/tile-component';
+import TileComponent from '../view/component/tile-component';
 import { ComponentIndex } from '../../../components/board';
 import { BoardState } from './board-state';
 import { clickEventName } from '../view/event/click-event';
@@ -13,6 +14,12 @@ export default class SquareSelectionControllerState extends ControllerStateTempl
 
   handleSelection(action) {
     const selectedComponent = action.component;
+
+    // component MUST be a tile-component
+    if (!(selectedComponent instanceof TileComponent)) {
+      console.log('non tile component selected');
+      return;
+    }
 
     const arrowComponents = this.buildArrowComponents(selectedComponent);
     arrowComponents.forEach(c => this.controller.board.registerUiComponent(c, ComponentIndex.ANIMATIONS));
@@ -34,24 +41,24 @@ export default class SquareSelectionControllerState extends ControllerStateTempl
     const cell = selectedComponent.cell;
 
     // horizontal cell
-    if (cell.row < this.controller.boardModel.boardSize - 1) {
+    if (cell.column < this.controller.boardModel.boardSize - 1) {
       const startPoint = {
         x: selectedComponent.startX + selectedComponent.sideLength,
         y: selectedComponent.startY + (selectedComponent.sideLength / 2)
       };
       const angle = 0;
 
-      components.push(new ArrowComponent(startPoint.x, startPoint.y, selectedComponent.sideLength, angle));
+      components.push(new ArrowComponent(startPoint.x, startPoint.y, selectedComponent.sideLength, this.controller, angle));
     }
 
-    if (cell.column < this.controller.boardModel.boardSize - 1) {
+    if (cell.row < this.controller.boardModel.boardSize - 1) {
       const startPoint = {
         x: selectedComponent.startX + (selectedComponent.sideLength / 2),
         y: selectedComponent.startY + (selectedComponent.sideLength)
       };
       const angle = 270;
 
-      components.push(new ArrowComponent(startPoint.x, startPoint.y, selectedComponent.sideLength, angle));
+      components.push(new ArrowComponent(startPoint.x, startPoint.y, selectedComponent.sideLength, this.controller, angle));
     }
 
     return components;

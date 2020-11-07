@@ -92,7 +92,8 @@ export default class EventRegistry {
 
     let eventNames = this.componentIdToRegisteredEvents[id];
     let localEventToComponents = this.eventToRegisteredComponents;
-    eventNames.forEach(n => localEventToComponents[n] = localEventToComponents.filter(c => c != component));
+
+    eventNames.forEach(n => localEventToComponents[n] = new Set(Array.from(localEventToComponents[n]).filter(c => c != component)));
   }
 
   /**

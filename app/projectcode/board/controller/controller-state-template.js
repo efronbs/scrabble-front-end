@@ -1,4 +1,5 @@
 import { ActionName } from './action';
+import { TileState } from '../view/component/tile-component';
 
 const noop = a => {};
 
@@ -43,6 +44,12 @@ export default class ControllerStateTemplate {
 
   handleCancel(action) {
     // BASE CASE DO NOTHING
+    Object.values(this.controller.board.squareComponents)
+      .forEach(
+        s => {
+          s.setState(TileState.SELECTABLE);
+          s.highlightable = true;
+    });
   }
 
   handleSubmit(action) {

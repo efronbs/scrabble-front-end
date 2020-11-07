@@ -4,11 +4,17 @@ import { clickEventName } from '../event/click-event';
 import { mouseEnterEventName } from '../event/mouse-enter-event';
 import { mouseLeaveEventName } from '../event/mouse-leave-event';
 import { SelectAction, ActionName } from '../../controller/action';
+import MathExtended from '../../../util/math-extended';
+
+const fontName = 'Georgia, serif';
 
 // States the tile can be in. Tile has different behaviors based on state
 export const TileState = {
   SELECTABLE: 'selectable',
   UNFOCUSED: 'unfocused',
+  WAITING_FOR_INPUT: 'waitingforinput',
+  ENTERED_NOT_SUBMITTED: 'enterednotsubmitted',
+  NOT_SELECTABLE: 'notselectable',
 };
 
 export default class TileComponent extends UiComponent {
@@ -22,7 +28,11 @@ export default class TileComponent extends UiComponent {
     this.sideLength = sideLength;
     this.cell = cell;
     this.controller = controller;
+
+    // mutable state
     this.highlightable = true;
+    this.fontSize = Math.floor(this.sideLength * .666);
+    this.font = this.fontSize + 'px ' + fontName;
 
     this.canvas == null;
 
@@ -34,19 +44,25 @@ export default class TileComponent extends UiComponent {
 
     // strategies
     this.selectableStrategy = new SelectableStrategy(this);
-    this.UnfocusedStrategy = new UnfocusedStrategy(this);
+    this.unfocusedStrategy = new UnfocusedStrategy(this);
+    this.waitingForInputStrategy = new WaitingForInputStrategy(this);
+    this.enteredNoSubmittedStrategy = new EnteredNotSubmittedStrategy(this);
+    this.notSelectableStrategy = new NotSelectableStrategy(this);
 
     // state to strategy
     this.stateToStrategy = {}
     this.stateToStrategy[TileState.SELECTABLE] = this.selectableStrategy;
-    this.stateToStrategy[TileState.UNFOCUSED] = this.UnfocusedStrategy;
+    this.stateToStrategy[TileState.UNFOCUSED] = this.unfocusedStrategy;
+    this.stateToStrategy[TileState.WAITING_FOR_INPUT] = this.waitingForInputStrategy
+    this.stateToStrategy[TileState.ENTERED_NOT_SUBMITTED] = this.enteredNoSubmittedStrategy;
+    this.stateToStrategy[TileState.NOT_SELECTABLE] = this.notSelectableStrategy;
 
     // initialize strategy to tile selection
     this.currentStrategy = this.selectableStrategy;
   }
 
   getId() {
-    return this.constructor.name + this.startX + this.startY + this.sideLength + this.cell.value;
+    return this.constructor.name + this.startX + this.startY;
   }
 
   setState(stateName) {
@@ -66,9 +82,37 @@ export default class TileComponent extends UiComponent {
     return distanceFromStart >= 0 && distanceFromStart <= this.sideLength;
   }
 
+  drawLetter(ctx) {
+    const text = this.cell.value;
+    if (text === '') {
+      return;
+    }
+
+    ctx.fillStyle = 'black';
+    ctx.font = this.font;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    const textLocation = this.centerText(ctx, text);
+
+    ctx.fillText(text, textLocation.x, textLocation.y);
+  }
+
+  centerText(ctx, text) {
+    const metrics = ctx.measureText(text);
+    const offsetX = (this.sideLength / 2) - (metrics.width / 2);
+    return {
+      x: this.startX + offsetX,
+      y: this.startY + (this.sideLength / 6),
+    }
+  }
+
   // Forwarding to strategy
   draw(ctx) {
     this.currentStrategy.draw(ctx);
+  }
+
+  step(timeDelta) {
+    this.currentStrategy.step(timeDelta);
   }
 
   eventFired(e) {
@@ -90,6 +134,8 @@ export default class TileComponent extends UiComponent {
   }
 }
 
+// TODO: make base class for all strategies
+// TODO: consider extracting strategies to separate javascript file
 class SelectableStrategy {
   constructor(tile) {
     this.tile = tile;
@@ -97,10 +143,15 @@ class SelectableStrategy {
   }
 
   draw(ctx) {
+    this.tile.drawLetter(ctx);
     if (this.highlighted && this.tile.highlightable) {
       ctx.fillStyle = 'rgba(85, 251, 64, 0.5)';
       ctx.fillRect(this.tile.startX, this.tile.startY, this.tile.sideLength, this.tile.sideLength);
     }
+  }
+
+  step(timeDelta) {
+    // do nothing
   }
 
   handleClickEvent(event) {
@@ -123,8 +174,13 @@ class UnfocusedStrategy {
   }
 
   draw(ctx) {
+    this.tile.drawLetter(ctx);
     ctx.fillStyle = this.shadedFillStyle;
     ctx.fillRect(this.tile.startX, this.tile.startY, this.tile.sideLength, this.tile.sideLength);
+  }
+
+  step(timeDelta) {
+    // do nothing
   }
 
   handleClickEvent(event) {
@@ -137,5 +193,103 @@ class UnfocusedStrategy {
 
   handleMouseLeaveEvent(event) {
     // nothing when unfocused
+  }
+}
+
+class WaitingForInputStrategy {
+  constructor(tile) {
+    this.tile = tile;
+    this.visible = true;
+    this.timeVisibleMillis = 500;
+    this.elapsed = 0;
+
+    // cursor
+    this.cursorStartX = this.tile.startX + ((this.tile.sideLength * 2) / 10);
+    this.cursorStartY = this.tile.startY + ((this.tile.sideLength) / 6);
+    this.cursorWidth = this.tile.sideLength / 20;
+    this.cursorHeight = (this.tile.sideLength * 2) / 3;
+  }
+
+  draw(ctx) {
+    ctx.fillStyle = 'black';
+    if (this.visible) {
+        // TODO consider only showing cursor if the tile has no value. Otherwise, blink existing value
+        ctx.fillRect(this.cursorStartX, this.cursorStartY, this.cursorWidth, this.cursorHeight);
+    }
+  }
+
+  step(timeDelta) {
+    this.elapsed = MathExtended.clamp(this.elapsed + timeDelta, 0, this.timeVisibleMillis);
+
+    if (this.elapsed == this.timeVisibleMillis) {
+      this.visible = !this.visible;
+      this.elapsed = 0;
+    }
+  }
+
+  handleClickEvent(event) {
+  }
+
+  handleMouseEnterEvent(event) {
+  }
+
+  handleMouseLeaveEvent(event) {
+  }
+}
+
+class EnteredNotSubmittedStrategy {
+  constructor(tile) {
+    this.tile = tile;
+    this.highlighted = false;
+  }
+
+  draw(ctx) {
+    this.tile.drawLetter(ctx);
+
+    if (this.highlighted && this.tile.highlightable) {
+      ctx.fillStyle = 'rgba(85, 251, 64, 0.5)';
+      ctx.fillRect(this.tile.startX, this.tile.startY, this.tile.sideLength, this.tile.sideLength);
+    } else {
+      ctx.fillStyle = 'rgba(56, 105, 215, 0.5)';
+      ctx.fillRect(this.tile.startX, this.tile.startY, this.tile.sideLength, this.tile.sideLength);
+    }
+  }
+
+  step(timeDelta) {
+    // do nothing
+  }
+
+  handleClickEvent(event) {
+  }
+
+  handleMouseEnterEvent(event) {
+    this.highlighted = true;
+  }
+
+  handleMouseLeaveEvent(event) {
+    this.highlighted = false;
+  }
+}
+
+class NotSelectableStrategy {
+  constructor(tile) {
+    this.tile = tile;
+  }
+
+  draw(ctx) {
+    this.tile.drawLetter(ctx);
+  }
+
+  step(timeDelta) {
+    // do nothing
+  }
+
+  handleClickEvent(event) {
+  }
+
+  handleMouseEnterEvent(event) {
+  }
+
+  handleMouseLeaveEvent(event) {
   }
 }

@@ -4,6 +4,7 @@ import ControllerStateTemplate from '../projectcode/board/controller/controller-
 import { BoardState } from '../projectcode/board/controller/board-state';
 import SquareSelectionControllerState from '../projectcode/board/controller/square-selection-controller-state';
 import DirectionSelectionControllerState from '../projectcode/board/controller/direction-selection-controller-state';
+import WordEntryControllerState from '../projectcode/board/controller/word-entry-controller-state';
 
 const id = 'BoardControllerService';
 
@@ -14,10 +15,15 @@ export default class BoardControllerService extends Service {
 
     this.boardModel = boardModel;
 
+    // fields set and used by strategies
+    this.arrowComponents = null;
+    this.focusedComponent = null;
+    this.directionTranslation = null;
+
     // states to switch between
     this.squareSelectionState = new SquareSelectionControllerState(this);
     this.directionSelectionState = new DirectionSelectionControllerState(this);
-    this.wordEntryState = new WordEntryState(this);
+    this.wordEntryState = new WordEntryControllerState(this);
 
     // mapping from state name to state strategy
     this.stateToStrategy = {};
@@ -49,29 +55,5 @@ export default class BoardControllerService extends Service {
 
   eventFired(e) {
     this.boardState.processEvent(e);
-  }
-}
-
-// TODO extract this into separate class
-class WordEntryState extends ControllerStateTemplate {
-  processEvent(e) {
-    if (e.getName() === keyDownEventName) {
-      const stringCode = e.rawEvent.code;
-      const asciiCode = e.rawEvent.keyCode;
-      if (stringCode === 'Escape') {
-          this.handleCancel(new CancelAction());
-      }
-      if (asciiCode >= 64 && asciiCode <= 90) {
-        const enteredChar = String.fromCharCode(asciiCode);
-      }
-    }
-  }
-
-  handleCancel() {
-    // TODO: fill this in
-  }
-
-  handleSubmit() {
-    // TODO: fill this in
   }
 }

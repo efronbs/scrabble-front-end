@@ -84,6 +84,10 @@ export default class BoardComponent extends Component {
     // first classed drawing components
     this.boardFrameComponent = null;
     this.boardBackgroundComponent = null;
+    // mapping of cell id (retrieved from Cell.idFor) to component for that cell
+    // this is functionally used as a way to get the tile component by board location
+    // if attempting to retrieve the tile component from a component id (retrieved
+    // from componentObject.getId()), uses the idToComponent field.
     this.squareComponents = {};
 
     // event registry
@@ -150,8 +154,8 @@ export default class BoardComponent extends Component {
         let id = Cell.idFor(row, column);
         let coordinates = this.boardFrameComponent.coordinatesForSquare(row, column);
         let newSquare = new TileComponent(
-          coordinates['row'],
           coordinates['column'],
+          coordinates['row'],
           this.boardFrameComponent.squareSideLength,
           this.boardModel.cells[id],
           this.boardController

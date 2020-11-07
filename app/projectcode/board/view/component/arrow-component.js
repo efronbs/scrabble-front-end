@@ -1,10 +1,11 @@
 import UiComponent from './ui-component';
 import MathExtended from '../../../util/math-extended';
 import Matrix from '../../../util/matrix';
+import { clickEventName } from '../event/click-event';
+import { SelectAction } from '../../controller/action';
 
 const origin = {x: 0, y: 0};
 const initialRotation = Math.PI / 2;
-
 /**
  * Matrix to correct rotation direction for inverted y axis.
  *
@@ -18,7 +19,7 @@ export default class ArrowComponent extends UiComponent {
   static lineThickness = 2;
 
   // ROTATION IS IN DEGREES
-  constructor(x, y, squareSize, rotation = 0) {
+  constructor(x, y, squareSize, controller, rotation = 0) {
     super();
 
     //debugging
@@ -29,6 +30,7 @@ export default class ArrowComponent extends UiComponent {
     this.y = y;
     this.basePoint = {x: this.x, y: this.y};
     this.squareSize = squareSize;
+    this.controller = controller;
     this.rawRotation = ((Math.PI * rotation) / 180);
     this.adjustedRotation = this.rawRotation - initialRotation;
 
@@ -71,6 +73,12 @@ export default class ArrowComponent extends UiComponent {
             && rotated.x <= this.unrotatedClickBox.x2
             && rotated.y >= this.unrotatedClickBox.y1
             && rotated.y <= this.unrotatedClickBox.y2;
+  }
+
+  eventFired(e) {
+    if (e.getName() === clickEventName) {
+        this.controller.processAction(new SelectAction(this));
+    }
   }
 
   // ******************
