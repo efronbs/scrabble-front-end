@@ -9,7 +9,6 @@ import { keyDownEventName } from '../view/event/keyboard-events';
 import { CancelAction, SubmitAction } from './action';
 import Cell from '../model/cell';
 
-// TODO extract this into separate class
 export default class WordEntryControllerState extends ControllerStateTemplate {
 
   constructor(controller) {
@@ -37,13 +36,9 @@ export default class WordEntryControllerState extends ControllerStateTemplate {
         this.handleSubmit(new SubmitAction());
       }
 
-      // TODO backspace should set the value in the current cell to empty string
-      // and move back to the previous space. If you hit backspace with no letters
-      // entered just wait on current space (consider cancelling entry instead)
       if (asciiCode === 8) {
         this.handleBackspace();
       }
-
 
       if (asciiCode >= 64 && asciiCode <= 90) {
         const enteredChar = String.fromCharCode(asciiCode);
@@ -98,8 +93,6 @@ export default class WordEntryControllerState extends ControllerStateTemplate {
   }
 
   // private methods
-
-  // TODO: make this skip over already entered characters
   processInputCharacter(char) {
     const focusedComponent = this.controller.focusedComponent;
     focusedComponent.cell.value = char;
@@ -112,7 +105,7 @@ export default class WordEntryControllerState extends ControllerStateTemplate {
 
     this.processedComponents[focusedComponent.cell.id] = focusedComponent;
 
-    // Move to next cell
+    // Move to next available cell, or stay on current cell if possible
     let foundNextViableSquare = false;
     let nextRow = focusedComponent.cell.row;
     let nextColumn = focusedComponent.cell.column;
@@ -132,7 +125,12 @@ export default class WordEntryControllerState extends ControllerStateTemplate {
 
       let nextId = Cell.idFor(nextRow, nextColumn)
       let nextComponent = this.controller.board.squareComponents[nextId];
-      if (nextComponent.cell.value === '') {
+
+
+      // either a square that we have already processed or an empty square
+      if (nextComponent.cell.value === '' ||
+            nextComponent.cell.id in this.processedComponents
+          ) {
         foundNextViableSquare = true;
       }
     }
@@ -142,25 +140,30 @@ export default class WordEntryControllerState extends ControllerStateTemplate {
     this.controller.focusedComponent = nextComponent;
   }
 
-  // TODO: make this skip over squares the were not proessed
   handleBackspace() {
     const focusedComponent = this.controller.focusedComponent;
 
     // 1. Always clear the value of the current cell if there is one
     focusedComponent.cell.value = '';
 
-    // 2. If the current cell is the first cell to type into, do nothing
-    if (this.firstComponent.getId() === focusedComponent.getId()) {
-      return
-    }
-
-    // 3. otherwise, prepare move to previous component
-    const prevRow = focusedComponent.cell.row - this.controller.directionTranslation.y;
-    const prevColumn = focusedComponent.cell.column - this.controller.directionTranslation.x;
-    const prevCellId = Cell.idFor(prevRow, prevColumn);
-    if (!prevCellId in this.processedComponents) {
+    // 2. simple base case coverage. Just return if we are already on first square
+    if (focusedComponent.getId() === this.firstComponent.getId()) {
       return;
     }
+
+    // 3. Move to last entered component. Not necessarily previous component.
+    let prevRow = focusedComponent.cell.row;
+    let prevColumn = focusedComponent.cell.column;
+    let foundPreviousViableSquare = false;
+    while (!foundPreviousViableSquare) {
+      prevRow = prevRow - this.controller.directionTranslation.y;
+      prevColumn = prevColumn - this.controller.directionTranslation.x;
+      var prevCellId = Cell.idFor(prevRow, prevColumn);
+      if (prevCellId === this.firstComponent.cell.id|| prevCellId in this.processedComponents) {
+        foundPreviousViableSquare = true;
+      }
+    }
+
     const prevComponent = this.processedComponents[prevCellId];
 
     // 4. current component should return to unfocused state
@@ -171,7 +174,7 @@ export default class WordEntryControllerState extends ControllerStateTemplate {
     this.controller.focusedComponent = prevComponent;
   }
 
-  // TODO: do NOT allow movement onto squares that have not been processed
+  // TODO: consider not allowing movement onto squares that have not been processed
   moveToSelectedComponent(selectedComponent) {
     if (this.controller.focusedComponent.cell.value !== '') {
       this.controller.focusedComponent.setState(TileState.ENTERED_NOT_SUBMITTED);
