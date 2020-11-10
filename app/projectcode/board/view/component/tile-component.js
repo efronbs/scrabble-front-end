@@ -213,8 +213,11 @@ class WaitingForInputStrategy {
   draw(ctx) {
     ctx.fillStyle = 'black';
     if (this.visible) {
-        // TODO consider only showing cursor if the tile has no value. Otherwise, blink existing value
+      if (this.tile.cell.value === '') {
         ctx.fillRect(this.cursorStartX, this.cursorStartY, this.cursorWidth, this.cursorHeight);
+      } else {
+        this.tile.drawLetter(ctx);
+      }
     }
   }
 
@@ -260,6 +263,7 @@ class EnteredNotSubmittedStrategy {
   }
 
   handleClickEvent(event) {
+    this.tile.controller.processAction(new SelectAction(this.tile));
   }
 
   handleMouseEnterEvent(event) {

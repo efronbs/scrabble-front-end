@@ -16,6 +16,11 @@ export default class KeyboardEmitter extends BaseEventEmitter {
   }
 
   handleKeyPress(e) {
+    // prevents backspace from navigating off page
+    if (e.keyCode === 8) {
+      e.preventDefault();
+    }
+
     this.eventToPipe[keyDownEventName].emit(new KeyDownEvent(e));
   }
 }
