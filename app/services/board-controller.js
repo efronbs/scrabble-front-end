@@ -32,6 +32,7 @@ export default class BoardControllerService extends Service {
     this.stateToStrategy[BoardState.WORD_ENTRY] = this.wordEntryState;
 
     this.boardState = this.squareSelectionState;
+    this.handModel = null;
   }
 
   // implementing some methods from ui component to subscribe to events.
@@ -43,6 +44,13 @@ export default class BoardControllerService extends Service {
 
   setBoard(board) {
     this.board = board;;
+  }
+
+  getHandModel() {
+    if (this.handModel == null) {
+      this.handModel = window.gameNamespace.handModel;
+    }
+    return this.handModel;
   }
 
   processAction(action) {

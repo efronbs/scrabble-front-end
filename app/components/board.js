@@ -72,6 +72,23 @@ export default class BoardComponent extends Component {
     **/
     this.boardModel = new BoardModelService();
     this.boardController = new BoardControllerService(this.boardModel);
+
+
+    /** // TODO: SET THESE VALUES WHERE DI FACTORIES ARE SET UP!
+     * Values initialized here are intended to be global values shared between all
+     * classes in the system. Thus, they should be either injected or set as properties
+     * in some global namespace, likely handled by the ember DI framework. Initialization
+     * here is simply a temporary workaround until I do a deep dive into ember's DI
+     * framework.
+     */
+     if (window.gameNamespace == null) {
+       window.gameNamespace = {};
+     }
+
+     window.gameNamespace.boardModel = this.boardModel;
+     window.gameNamespace.boardController = this.boardController;
+     window.gameNamespace.boardComponent = this;
+     window.gameNamespace.uiClock = this.uiClock;
     //*************************************************************************
     //*************************************************************************
     //*************************************************************************
@@ -119,6 +136,9 @@ export default class BoardComponent extends Component {
 
     // build canvas and initialize with required attributes
     let canvasSideLength = Math.min(this.canvasContainer.offsetHeight, this.canvasContainer.offsetWidth);
+    console.log('width: ' + this.canvasContainer.offsetWidth);
+    console.log('height: ' + this.canvasContainer.offsetHeight);
+    console.log('side length: ' + canvasSideLength);
     this.canvas = document.createElement("canvas");
     this.canvas.id = "board";
     this.canvas.height = canvasSideLength;
@@ -136,7 +156,7 @@ export default class BoardComponent extends Component {
     this.registerUiComponent(this.boardFrameComponent, ComponentIndex.FRAME);
 
     // create background component
-    let backgroundImage = new Image(this.boardFrameComponent.boardEdgeSize, this.boardFrameComponent.boardEdgeSize);
+    const backgroundImage = new Image(this.boardFrameComponent.boardEdgeSize, this.boardFrameComponent.boardEdgeSize);
     backgroundImage.src = woodBackgroundPath;
 
     this.boardBackgroundComponent = new BoardImageBackgroundComponent(

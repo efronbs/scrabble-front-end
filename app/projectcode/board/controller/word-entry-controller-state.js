@@ -94,6 +94,12 @@ export default class WordEntryControllerState extends ControllerStateTemplate {
 
   // private methods
   processInputCharacter(char) {
+    const handModel = this.controller.getHandModel();
+    if (!handModel.visibleHand.includes(char)) {
+      console.log('attempted to input char: ' + char + ' that is not in the player\'s hand');
+      return;
+    }
+
     const focusedComponent = this.controller.focusedComponent;
     focusedComponent.cell.value = char;
     focusedComponent.highlightable = true;
@@ -104,6 +110,7 @@ export default class WordEntryControllerState extends ControllerStateTemplate {
     }
 
     this.processedComponents[focusedComponent.cell.id] = focusedComponent;
+    handModel.visibleHand.splice(handModel.visibleHand.indexOf(char), 1);
 
     // Move to next available cell, or stay on current cell if possible
     let foundNextViableSquare = false;

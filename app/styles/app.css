@@ -44,7 +44,7 @@ body {
 .board-container {
   /* board container's position on the page */
   flex: 5 1 auto;
-  margin: 10px 0px;
+  margin: 10px 0px 0px 0px;
 
   /* settings for canvas inside of container */
   display: flex;
@@ -59,22 +59,18 @@ body {
 }
 
 /** text-entry **/
-.footer {
+.hand-container {
   /** position in containing flex box **/
-  flex: 0 1 125px;
-  /** setting this div as a flex box and positioning elements inside of it **/
+  /** TODO consider allowing this to grow, as it will rely on interaction with
+      a canvas **/
+  flex: 0 1 175px;
+
+  /** positioning for canvas inside container **/
   display: flex;
-  flex-flow: row;
   align-items: center;
   justify-content: center;
 }
 
-.letterbox {
-  flex: 1 1;
-  text-align: center;
-  outline: 2px solid black;
-  margin: 10px;
-  background-color: white;
-  /** TODO making the boxes into squares with interactive width is non-trivial.
-  Saving solving this for a later implementation. **/
+.hand {
+
 }
